@@ -140,7 +140,7 @@ public class TableDefWriter {
         sb.append("CREATE TABLE `");
       }
     } else {
-      if (isHiveExternalTableSet) {
+      if (isHiveExternalTableSet || options.getHBaseTable() != null) {
         sb.append("CREATE EXTERNAL TABLE IF NOT EXISTS `");
       } else {
         sb.append("CREATE TABLE IF NOT EXISTS `");
@@ -214,10 +214,12 @@ public class TableDefWriter {
         .append(" STRING) ");
      }
 
-    sb.append("ROW FORMAT DELIMITED FIELDS TERMINATED BY '");
-    sb.append(getHiveOctalCharCode((int) options.getOutputFieldDelim()));
-    sb.append("' LINES TERMINATED BY '");
-    sb.append(getHiveOctalCharCode((int) options.getOutputRecordDelim()));
+     if (options.getHBaseTable() == null) {
+       sb.append("ROW FORMAT DELIMITED FIELDS TERMINATED BY '");
+       sb.append(getHiveOctalCharCode((int) options.getOutputFieldDelim()));
+       sb.append("' LINES TERMINATED BY '");
+       sb.append(getHiveOctalCharCode((int) options.getOutputRecordDelim()));
+    }
     String codec = options.getCompressionCodec();
     if (codec != null && (codec.equals(CodecMap.LZOP)
             || codec.equals(CodecMap.getCodecClassName(CodecMap.LZOP)))) {
@@ -225,10 +227,22 @@ public class TableDefWriter {
               + "'com.hadoop.mapred.DeprecatedLzoTextInputFormat'");
       sb.append(" OUTPUTFORMAT "
               + "'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'");
-    } else {
+    } else if (options.getHBaseTable() != null){
+      sb.append("STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'");
+    }
+    else {
+
       sb.append("' STORED AS TEXTFILE");
     }
-
+    if (options.getHBaseTable() != null){
+      StringBuilder sb1 = new StringBuilder(":key");
+      for (String colname:colNames){
+        if(!colname.equals(options.getHBaseRowKeyColumn()))
+          sb1.append(",").append("0:"+colname);
+      }
+      sb.append("WITH SERDEPROPERTIES (\"hbase.columns.mapping\" = \""+sb1.toString()+"\") ");
+      sb.append("TBLPROPERTIES(\"hbase.table.name\" = \""+options.getHBaseTable()+"\")");
+    }
     if (isHiveExternalTableSet) {
       // add location
       sb.append(" LOCATION '"+options.getHiveExternalTableDir()+"'");

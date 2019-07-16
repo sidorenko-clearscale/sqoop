@@ -80,6 +80,8 @@ public class CreateHiveTableTool extends com.cloudera.sqoop.tool.BaseSqoopTool {
         .withDescription("The db table to read the definition from")
         .withLongOpt(TABLE_ARG)
         .create());
+
+    toolOptions.addUniqueOptions(getHBaseOptions());
     toolOptions.addUniqueOptions(hiveOpts);
 
     toolOptions.addUniqueOptions(getOutputFormatOptions());
@@ -103,6 +105,12 @@ public class CreateHiveTableTool extends com.cloudera.sqoop.tool.BaseSqoopTool {
       out.setTableName(in.getOptionValue(TABLE_ARG));
     }
 
+    if (in.hasOption(HBASE_TABLE_ARG)){
+      out.setHBaseTable(in.getOptionValue(HBASE_TABLE_ARG));
+    }
+    if(in.hasOption(HBASE_ROW_KEY_ARG)){
+      out.setHBaseRowKeyColumn(in.getOptionValue(HBASE_ROW_KEY_ARG));
+    }
     out.setHiveImport(true);
 
     applyCommonOptions(in, out);

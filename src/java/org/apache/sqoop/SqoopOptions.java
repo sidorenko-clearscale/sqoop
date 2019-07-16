@@ -1028,7 +1028,6 @@ public class SqoopOptions implements Cloneable {
     } else {
       this.conf = baseConfiguration;
     }
-
     this.extraArgs = null;
 
     this.dbOutColumns = null;

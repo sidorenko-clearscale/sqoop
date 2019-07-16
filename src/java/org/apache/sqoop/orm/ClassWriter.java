@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashSet;
@@ -1317,8 +1318,8 @@ public class ClassWriter {
               + "(DelimiterSet delimiters, ");
       sb.append("StringBuilder __sb, char fieldDelim) {\n");
     }
-
-    for (int i = methodNumber * size;
+    sb.append("__sb.append(GSON.toJson(getFieldMap()));\n");
+    /*for (int i = methodNumber * size;
          i < topBoundary(colNames, methodNumber, size); ++i) {
       String col = colNames[i];
       int sqlType = columnTypes.get(col);
@@ -1359,7 +1360,9 @@ public class ClassWriter {
         sb.append("    __sb.append(FieldFormatter.escapeAndEnclose("
             + stringExpr + ", delimiters));\n");
       }
-    }
+    }*/
+
+
 
     if (wrapInMethod) {
       sb.append("  }\n");
@@ -1946,6 +1949,10 @@ public class ClassWriter {
     sb.append("import java.util.List;\n");
     sb.append("import java.util.Map;\n");
     sb.append("import java.util.HashMap;\n");
+    sb.append("import com.google.gson.*;\n");
+    sb.append("import java.util.Base64;\n");
+    sb.append("import java.lang.reflect.Type;\n");
+    sb.append("import org.apache.hadoop.io.BytesWritable;");
     sb.append("\n");
 
     String className = tableNameInfo.getShortClassForTable(tableName);
@@ -1953,6 +1960,9 @@ public class ClassWriter {
         + " implements DBWritable, Writable {\n");
     sb.append("  private final int PROTOCOL_VERSION = "
         + CLASS_WRITER_VERSION + ";\n");
+    sb.append(" private static Gson GSON;\n");
+
+    generateStaticInit(sb);
     sb.append(
         "  public int getClassFormatVersion() { return PROTOCOL_VERSION; }\n");
     sb.append("  public static interface FieldSetterCommand {");
@@ -1981,4 +1991,33 @@ public class ClassWriter {
 
     return sb;
   }
+
+    private void generateStaticInit(StringBuilder sb) {
+        sb.append(" private static class ByteArrayToBase64TypeAdapter implements JsonSerializer<byte[]>, JsonDeserializer<byte[]> {\n");
+        sb.append(" public byte[] deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {\n");
+        sb.append("  return Base64.getDecoder().decode(json.getAsString());\n");
+        sb.append("    }\n");
+        sb.append("\n");
+        sb.append("public JsonElement serialize(byte[] src, Type typeOfSrc, JsonSerializationContext context) { \n");
+        sb.append("        return new JsonPrimitive(Base64.getEncoder().encodeToString(src));\n");
+        sb.append("    }\n");
+        sb.append("}\n");
+        sb.append(" private static class BytesWritableToBase64TypeAdapter implements JsonSerializer<BytesWritable>, JsonDeserializer<BytesWritable> {\n");
+        sb.append(" public BytesWritable deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {\n");
+        sb.append("  return new BytesWritable(Base64.getDecoder().decode(json.getAsString()));\n");
+        sb.append("    }\n");
+        sb.append("\n");
+        sb.append("public JsonElement serialize(BytesWritable src, Type typeOfSrc, JsonSerializationContext context) { \n");
+        sb.append("        return new JsonPrimitive(Base64.getEncoder().encodeToString(src.getBytes()));\n");
+        sb.append("    }\n");
+        sb.append("}\n");
+        sb.append(" static {\n");
+        sb.append(" GsonBuilder jb = new GsonBuilder();\n");
+        sb.append(" jb.serializeNulls();\n");
+        sb.append(" jb.setDateFormat(\"yyyy-MM-dd HH:mm:ss\");");
+        sb.append(" jb.registerTypeHierarchyAdapter(byte[].class,new ByteArrayToBase64TypeAdapter());\n");
+        sb.append(" jb.registerTypeHierarchyAdapter(BytesWritable.class, new BytesWritableToBase64TypeAdapter());\n");
+        sb.append(" GSON=jb.create();\n");
+        sb.append("};\n");
+    }
 }
